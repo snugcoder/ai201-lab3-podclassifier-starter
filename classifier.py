@@ -55,7 +55,28 @@ def build_few_shot_prompt(labeled_examples: list[dict], description: str) -> str
 
     Before writing code, complete specs/classifier-spec.md.
     """
-    return ""
+    instruction = (
+        "You are classifying podcast episodes by their format. "
+        "Classify the new episode into exactly one of these four labels: "
+        "interview, solo, panel, narrative.\n\n"
+        "Return your answer in this exact format:\n"
+        "Label: <one of: interview, solo, panel, narrative>\n"
+        "Reasoning: <one or two sentences>\n"
+    )
+    examples_block = "\n\n---\n\n".join(
+        f"Title: {ex['title']}\n"
+        f"Description: {ex['description']}\n"
+        f"Label: {ex['label']}"
+        for ex in labeled_examples
+    )
+    new_episode = (
+        f"Title: (unknown)\nDescription: {description}\nLabel: ?"
+    )
+    return (
+        f"{instruction}\n\n"
+        f"Here are labeled examples:\n\n{examples_block}\n\n---\n\n"
+        f"Now classify this new episode:\n\n{new_episode}"
+    )
 
 
 def classify_episode(description: str, labeled_examples: list[dict]) -> dict:
@@ -76,7 +97,34 @@ def classify_episode(description: str, labeled_examples: list[dict]) -> dict:
 
     Before writing code, complete specs/classifier-spec.md.
     """
-    return {
-        "label": None,
-        "reasoning": "Classifier not yet implemented. Complete Milestone 2.",
-    }
+    try:
+        prompt = build_few_shot_prompt(labeled_examples, description)
+        response = _client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200,
+        )
+        text = response.choices[0].message.content
+
+        # Parse label
+        label = "unknown"
+        reasoning = text.strip()
+        for line in text.splitlines():
+            cleaned = line.strip().lower().lstrip("*-` ").rstrip("*` .,:")
+            if cleaned.startswith("label:"):
+                candidate = cleaned.split("label:", 1)[1].strip().strip("*`. ,")
+                if candidate in VALID_LABELS:
+                    label = candidate
+                break
+
+        # Fallback: look for any valid label appearing as a bare word
+        if label == "unknown":
+            lowered = text.lower()
+            for valid in VALID_LABELS:
+                if valid in lowered:
+                    label = valid
+                    break
+
+        return {"label": label, "reasoning": reasoning}
+    except Exception as e:
+        return {"label": "unknown", "reasoning": f"Error: {e}"}

@@ -47,7 +47,8 @@ Returns the fraction of predictions that exactly match the ground truth.
 [blank — write out the accuracy formula in plain English.
  What counts as "correct"? What do you divide by?]
 ```
-
+Accuracy is True Positive + True Negative divided by True Positive + False Positive + True Negative + False Negative.
+A label is correct if the model evaluates the podcast accurately after considering the podcast description.
 ---
 
 **Step-by-step logic:**
@@ -66,7 +67,6 @@ Returns the fraction of predictions that exactly match the ground truth.
 ```
 [blank — what should the function return? Why?]
 ```
-
 ---
 
 **Worked example:**
